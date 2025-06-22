@@ -4,7 +4,7 @@ services:
     env: node
     plan: starter
     region: oregon
-    buildCommand: npm install
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
