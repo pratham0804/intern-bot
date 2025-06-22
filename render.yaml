@@ -11,8 +11,8 @@ services:
         value: production
       - key: PLAYWRIGHT_BROWSERS_PATH
         value: /opt/render/.cache/ms-playwright
-      - key: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
-        value: "true"
+      - key: PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+        value: /opt/render/.cache/ms-playwright/chromium-*/chrome-linux/chrome
     scaling:
       minInstances: 1
       maxInstances: 1

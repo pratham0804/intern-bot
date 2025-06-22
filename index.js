@@ -32,8 +32,8 @@ async function ensureBrowsersInstalled() {
     } catch (testError) {
       console.log('📥 Installing Playwright browsers...');
       
-      // Install browsers
-      execSync('npx playwright install chromium --with-deps', { 
+      // Install browsers without system dependencies
+      execSync('npx playwright install chromium', { 
         stdio: 'inherit',
         timeout: 300000 // 5 minutes timeout
       });
@@ -44,7 +44,11 @@ async function ensureBrowsersInstalled() {
     }
   } catch (error) {
     console.error('❌ Failed to install Playwright browsers:', error.message);
-    return false;
+    
+    // Try alternative approach - mark as installed and let browser launch handle it
+    console.log('🔄 Attempting to proceed without explicit installation...');
+    browsersInstalled = true;
+    return true;
   }
 }
 
@@ -79,29 +83,48 @@ const getBrowserConfig = () => {
       '--disable-component-update',
       '--disable-default-browser-check',
       '--memory-pressure-off',
-      '--max_old_space_size=4096'
+      '--max_old_space_size=4096',
+      '--disable-crash-reporter',
+      '--disable-logging',
+      '--disable-dev-tools',
+      '--disable-features=TranslateUI',
+      '--disable-background-downloads',
+      '--disable-plugins-discovery'
     ],
     devtools: false,
     ignoreDefaultArgs: [
       '--enable-automation',
       '--enable-blink-features=IdleDetection'
-    ]
+    ],
+    timeout: 60000
   };
 };
 
 // Utility function to create browser instance
 async function createBrowser() {
   try {
-    // Ensure browsers are installed before creating instance
-    const installed = await ensureBrowsersInstalled();
-    if (!installed) {
-      throw new Error('Failed to install Playwright browsers');
-    }
-
     console.log('Attempting to launch browser...');
-    const browser = await chromium.launch(getBrowserConfig());
-    console.log('✅ Browser launched successfully');
-    return browser;
+    
+    // Try to launch browser directly first (in case Playwright is already set up)
+    try {
+      const browser = await chromium.launch(getBrowserConfig());
+      console.log('✅ Browser launched successfully');
+      browsersInstalled = true;
+      return browser;
+    } catch (directLaunchError) {
+      console.log('Direct browser launch failed, trying installation...');
+      
+      // Ensure browsers are installed before creating instance
+      const installed = await ensureBrowsersInstalled();
+      if (!installed) {
+        throw new Error('Failed to install Playwright browsers');
+      }
+
+      console.log('Attempting to launch browser after installation...');
+      const browser = await chromium.launch(getBrowserConfig());
+      console.log('✅ Browser launched successfully after installation');
+      return browser;
+    }
   } catch (error) {
     console.error('❌ Browser launch failed:', error.message);
     throw new Error(`Browser launch failed: ${error.message}`);
