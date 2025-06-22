@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: intern-job-scraper-bot
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: /opt/render/.cache/ms-playwright
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+    healthCheckPath: /
+    disk:
+      name: playwright-cache
+      mountPath: /opt/render/project/.playwright
+      sizeGB: 1 

@@ -1,0 +1,246 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "511ca1df-0d20-447e-97fa-a0b8bd72d9cc",
+      "name": "Daily 9 AM IST Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1000,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://44df7888-6736-4d60-b75f-7a26b57fc7af-00-3cxgwbz69a1lx.sisko.replit.dev/internshala",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "ca116e2a-702a-4961-a85f-54489e144201",
+      "name": "Fetch Internshala Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -760,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://44df7888-6736-4d60-b75f-7a26b57fc7af-00-3cxgwbz69a1lx.sisko.replit.dev/linkedin",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "56c50288-2ae9-450c-afd7-8d0daeb3eb78",
+      "name": "Fetch LinkedIn Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -760,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "fafba059-c627-43c6-92ff-76a32f488297",
+      "name": "Merge Job Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        -540,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process & Split Jobs - Enhanced Data Processing\nconst internshalaData = $input.first();\nconst linkedinData = $input.last();\n\nlet allJobs = [];\nlet totalCount = 0;\nlet sources = [];\nlet errors = [];\n\nconsole.log('=== JOB PROCESSING START ===');\nconsole.log('Internshala Data:', internshalaData ? 'Present' : 'Missing');\nconsole.log('LinkedIn Data:', linkedinData ? 'Present' : 'Missing');\n\n// Enhanced function to safely extract jobs\nfunction extractJobs(data, sourceName) {\n  try {\n    if (!data) {\n      console.log(`${sourceName}: No data received`);\n      errors.push(`${sourceName}: No data received`);\n      return { jobs: [], count: 0, error: true };\n    }\n    \n    let responseData = data.json || data;\n    \n    if (responseData.error || (responseData.success === false && responseData.message)) {\n      console.log(`${sourceName}: API Error - ${responseData.message || responseData.error}`);\n      errors.push(`${sourceName}: ${responseData.message || responseData.error}`);\n      return { jobs: [], count: 0, error: true };\n    }\n    \n    let jobsArray = [];\n    if (responseData.jobs && Array.isArray(responseData.jobs)) {\n      jobsArray = responseData.jobs;\n    } else if (responseData.data && Array.isArray(responseData.data)) {\n      jobsArray = responseData.data;\n    } else if (Array.isArray(responseData)) {\n      jobsArray = responseData;\n    }\n    \n    if (jobsArray.length === 0) {\n      console.log(`${sourceName}: No jobs found in response`);\n      return { jobs: [], count: 0, error: false };\n    }\n    \n    console.log(`${sourceName}: Successfully extracted ${jobsArray.length} jobs`);\n    return { \n      jobs: jobsArray, \n      count: responseData.count || jobsArray.length, \n      error: false \n    };\n    \n  } catch (error) {\n    console.error(`${sourceName}: Processing error - ${error.message}`);\n    errors.push(`${sourceName}: Processing error - ${error.message}`);\n    return { jobs: [], count: 0, error: true };\n  }\n}\n\n// Process Internshala data\nconst internshalaResult = extractJobs(internshalaData, 'Internshala');\nif (!internshalaResult.error && internshalaResult.jobs.length > 0) {\n  const internshalaJobs = internshalaResult.jobs.map(job => ({\n    title: job.title || job.jobTitle || 'Title Not Available',\n    company: job.company || job.companyName || 'Company Not Available',\n    location: job.location || job.jobLocation || 'Remote',\n    stipend: job.stipend || job.salary || job.compensation || 'Not Specified',\n    duration: job.duration || job.jobDuration || 'Not Specified',\n    link: job.link || job.url || job.applyLink || '',\n    source: 'Internshala',\n    postedDate: job.postedDate || job.datePosted || 'Recently',\n    hasJobs: true\n  }));\n  \n  allJobs = allJobs.concat(internshalaJobs);\n  totalCount += internshalaResult.count;\n  sources.push(`Internshala (${internshalaResult.count})`);\n}\n\n// Process LinkedIn data\nconst linkedinResult = extractJobs(linkedinData, 'LinkedIn');\nif (!linkedinResult.error && linkedinResult.jobs.length > 0) {\n  const linkedinJobs = linkedinResult.jobs.map(job => ({\n    title: job.title || job.jobTitle || 'Title Not Available',\n    company: job.company || job.companyName || 'Company Not Available',\n    location: job.location || job.jobLocation || 'Remote',\n    stipend: job.stipend || job.salary || job.compensation || 'Not Specified',\n    duration: job.duration || job.jobDuration || 'Not Specified',\n    link: job.link || job.url || job.applyLink || '',\n    source: 'LinkedIn',\n    postedDate: job.postedDate || job.datePosted || 'Recently',\n    hasJobs: true\n  }));\n  \n  allJobs = allJobs.concat(linkedinJobs);\n  totalCount += linkedinResult.count;\n  sources.push(`LinkedIn (${linkedinResult.count})`);\n}\n\nconsole.log(`Total jobs before deduplication: ${allJobs.length}`);\n\n// Enhanced deduplication\nconst uniqueJobs = allJobs.filter((job, index, self) => {\n  return index === self.findIndex(j => {\n    const titleMatch = j.title.toLowerCase().trim() === job.title.toLowerCase().trim();\n    const companyMatch = j.company.toLowerCase().trim() === job.company.toLowerCase().trim();\n    return titleMatch && companyMatch;\n  });\n});\n\nconsole.log(`Unique jobs after deduplication: ${uniqueJobs.length}`);\n\n// Return each job as a separate item for individual processing\nif (uniqueJobs.length > 0) {\n  return uniqueJobs.map((job, index) => ({\n    json: {\n      ...job,\n      jobIndex: index + 1,\n      totalJobs: uniqueJobs.length,\n      sources: sources.join(', '),\n      scrapedAt: new Date().toISOString(),\n      scrapedAtLocal: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),\n      messageType: 'job_posting'\n    }\n  }));\n} else {\n  // Return a single item for no jobs case, with error details if any\n  return [{\n    json: {\n      hasJobs: false,\n      totalJobs: 0,\n      sources: sources.length > 0 ? sources.join(', ') : 'All configured sources',\n      errors: errors,\n      hasErrors: errors.length > 0,\n      scrapedAt: new Date().toISOString(),\n      scrapedAtLocal: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),\n      message: errors.length > 0 ? \n        `Scan completed with issues: ${errors.join(', ')}` : \n        'Scan completed successfully - no new opportunities found',\n      messageType: 'status_update'\n    }\n  }];\n}"
+      },
+      "id": "d913f1fd-c86a-4843-9b31-a845b615cbc8",
+      "name": "Process & Split Jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Universal Message Formatter - Enhanced with Proper Markdown Escaping\nconst data = $json;\n\n// Helper function to escape Markdown special characters\nfunction escapeMarkdown(text) {\n  if (!text || typeof text !== 'string') return '';\n  return text.replace(/[_*[\\]()~`>#+=|{}.!-]/g, '\\\\$&');\n}\n\n// Helper function to create clean markdown links\nfunction createMarkdownLink(text, url) {\n  if (!url || url.trim() === '') return text;\n  const cleanText = escapeMarkdown(text);\n  const cleanUrl = url.replace(/[()]/g, '\\\\$&');\n  return `[${cleanText}](${cleanUrl})`;\n}\n\nif (data.messageType === 'job_posting' && data.hasJobs) {\n  // Format Individual Job Message - Professional & Clean\n  const job = data;\n\n  // Job emojis for different categories\n  const jobEmojis = {\n    'web': '💻',\n    'design': '🎨',\n    'marketing': '📈',\n    'data': '📊',\n    'content': '✍️',\n    'sales': '🎯',\n    'hr': '👥',\n    'finance': '💰',\n    'default': '🚀'\n  };\n\n  // Get appropriate emoji based on job title\n  function getJobEmoji(title) {\n    const lowerTitle = title.toLowerCase();\n    if (lowerTitle.includes('web') || lowerTitle.includes('developer') || lowerTitle.includes('programming')) return jobEmojis.web;\n    if (lowerTitle.includes('design') || lowerTitle.includes('ui') || lowerTitle.includes('ux')) return jobEmojis.design;\n    if (lowerTitle.includes('marketing') || lowerTitle.includes('seo') || lowerTitle.includes('social')) return jobEmojis.marketing;\n    if (lowerTitle.includes('data') || lowerTitle.includes('analyst') || lowerTitle.includes('research')) return jobEmojis.data;\n    if (lowerTitle.includes('content') || lowerTitle.includes('writer') || lowerTitle.includes('blog')) return jobEmojis.content;\n    if (lowerTitle.includes('sales') || lowerTitle.includes('business')) return jobEmojis.sales;\n    if (lowerTitle.includes('hr') || lowerTitle.includes('human')) return jobEmojis.hr;\n    if (lowerTitle.includes('finance') || lowerTitle.includes('accounting')) return jobEmojis.finance;\n    return jobEmojis.default;\n  }\n\n  // Create professional job message with proper escaping\n  const emoji = getJobEmoji(job.title);\n  let message = `${emoji} *${escapeMarkdown(job.title)}*\\n\\n`;\n\n  // Company info\n  message += `🏢 *${escapeMarkdown(job.company)}*\\n`;\n\n  // Location (only if meaningful)\n  if (job.location && job.location !== 'N/A' && job.location !== 'Not Specified' && job.location !== 'Remote') {\n    message += `📍 ${escapeMarkdown(job.location)}\\n`;\n  } else {\n    message += `📍 Remote Work\\n`;\n  }\n\n  // Stipend (only if available)\n  if (job.stipend && job.stipend !== 'N/A' && job.stipend !== 'Not Specified') {\n    message += `💵 ${escapeMarkdown(job.stipend)}\\n`;\n  }\n\n  // Duration (only if available)\n  if (job.duration && job.duration !== 'N/A' && job.duration !== 'Not Specified') {\n    message += `⏱️ ${escapeMarkdown(job.duration)}\\n`;\n  }\n\n  // Source with appropriate icon\n  const sourceIcon = job.source === 'LinkedIn' ? '🔗' : '📋';\n  message += `${sourceIcon} via ${escapeMarkdown(job.source)}\\n\\n`;\n\n  // Call to action with proper link formatting\n  if (job.link && job.link.trim() !== '') {\n    message += `${createMarkdownLink('🎯 Apply Now', job.link)}\\n\\n`;\n  } else {\n    message += `🔍 Search \"${escapeMarkdown(job.title)}\" at ${escapeMarkdown(job.company)}\\n\\n`;\n  }\n\n  // Professional closing without bot mention\n  const closings = [\n    '💡 _Apply within 24 hours for better visibility_',\n    '⚡ _Customize your application for this role_',\n    '🚀 _Follow up after applying for best results_',\n    '💼 _Quality applications stand out_',\n    '🎯 _Research the company before applying_'\n  ];\n\n  const randomClosing = closings[Math.floor(Math.random() * closings.length)];\n  message += randomClosing;\n\n  return {\n    json: {\n      text: message,\n      chatId: '@RemoteInternIndia',\n      jobTitle: job.title,\n      company: job.company,\n      source: job.source,\n      messageType: 'job_posting'\n    }\n  };\n\n} else {\n  // Format No Jobs Message - Professional Status Update\n  let message = `🔍 *Daily Job Scan Complete*\\n\\n`;\n\n  if (data.hasErrors && data.errors.length > 0) {\n    message += `⚠️ *Status*: Partial scan completed\\n`;\n    message += `📊 *Checked*: ${escapeMarkdown(data.sources)}\\n`;\n    message += `⏰ *Time*: ${escapeMarkdown(data.scrapedAtLocal)}\\n\\n`;\n    message += `🔧 Some sources had technical issues\\n`;\n    message += `🔄 Next scan: Tomorrow at 9:00 AM IST\\n\\n`;\n    message += `💪 _Working to resolve any issues_`;\n  } else {\n    message += `✅ *Status*: All sources scanned successfully\\n`;\n    message += `📊 *Checked*: ${escapeMarkdown(data.sources)}\\n`;\n    message += `⏰ *Time*: ${escapeMarkdown(data.scrapedAtLocal)}\\n\\n`;\n    message += `📝 No new remote internships today\\n`;\n    message += `🎯 You're not missing out!\\n\\n`;\n    message += `⏰ Next update: Tomorrow at 9:00 AM IST\\n`;\n    message += `💡 _Best opportunities often post Monday-Thursday_`;\n  }\n\n  return {\n    json: {\n      text: message,\n      chatId: '@RemoteInternIndia',\n      messageType: 'status_update'\n    }\n  };\n}"
+      },
+      "id": "dbeb6fce-65dc-43dd-858b-5f946d1193f5",
+      "name": "Format Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "id": "774a160e-f6de-4c29-8a0c-75bdd8002d6e",
+      "name": "Delay Between Messages",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        120,
+        40
+      ],
+      "webhookId": "e7e21fef-661d-4fce-af3b-ce128f100a0b"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "disable_web_page_preview": true,
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "680dd4ad-9bd2-4456-9ee5-5b96a6e50461",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        40
+      ],
+      "webhookId": "8ca1b608-a3c4-4e2f-b62d-5f2d0b61f4a0",
+      "credentials": {
+        "telegramApi": {
+          "id": "elcdKzS5DUD9qNp3",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 9 AM IST Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Internshala Jobs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch LinkedIn Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Internshala Jobs": {
+      "main": [
+        [
+          {
+            "node": "Merge Job Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch LinkedIn Jobs": {
+      "main": [
+        [
+          {
+            "node": "Merge Job Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Job Sources": {
+      "main": [
+        [
+          {
+            "node": "Process & Split Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Split Jobs": {
+      "main": [
+        [
+          {
+            "node": "Format Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Messages": {
+      "main": [
+        [
+          {
+            "node": "Delay Between Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delay Between Messages": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "20549d3e-c4fb-4361-b49d-94273553d574",
+  "meta": {
+    "instanceId": "f50cef68a0da9b76dddc127b0a434ab559d236dd942517a293742cfc674e68b6"
+  },
+  "id": "hPbUg68vhMFhAsjq",
+  "tags": [
+    {
+      "createdAt": "2025-06-20T11:01:57.417Z",
+      "updatedAt": "2025-06-20T11:01:57.417Z",
+      "id": "AxQWc9NqClsuBKFz",
+      "name": "job-scraper"
+    },
+    {
+      "createdAt": "2025-06-20T11:01:57.425Z",
+      "updatedAt": "2025-06-20T11:01:57.425Z",
+      "id": "BGbzAXlBNYXIILO7",
+      "name": "telegram-bot"
+    }
+  ]
+}

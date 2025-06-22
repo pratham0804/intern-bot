@@ -1,0 +1,48 @@
+name: Keep Replit Alive
+
+on:
+  schedule:
+    # Runs every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Ping Replit App
+      run: |
+        echo "Pinging Replit at $(date)"
+        
+        # Try multiple endpoints with timeout and retries
+        urls=(
+          "https://44df7888-6736-4d60-b75f-7a26b57fc7af-00-3cxgwbz69a1lx.sisko.replit.dev/"
+          "https://44df7888-6736-4d60-b75f-7a26b57fc7af-00-3cxgwbz69a1lx.sisko.replit.dev/health"
+        )
+        
+        for url in "${urls[@]}"; do
+          echo "Trying: $url"
+          
+          # Multiple attempts with different configurations
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt..."
+            
+            # Try with curl - more reliable than wget for this
+            if curl -s -f -m 30 \
+              -H "User-Agent: GitHub-Actions-KeepAlive/1.0" \
+              -H "Accept: text/html,application/json" \
+              "$url" > /dev/null 2>&1; then
+              echo "✅ Success: $url responded"
+              exit 0
+            fi
+            
+            if [ $attempt -lt 3 ]; then
+              echo "❌ Failed attempt $attempt, retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+        done
+        
+        echo "⚠️ All attempts failed, but continuing..."
+        # Don't fail the action, just log the issue

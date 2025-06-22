@@ -1,0 +1,15 @@
+modules = ["nodejs-20", "web"]
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["node", "index.js"]
+
+[env]
+PLAYWRIGHT_BROWSERS_PATH = "/nix/store"
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
+[[ports]]
+localPort = 3000
+externalPort = 80

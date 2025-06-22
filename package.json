@@ -1,0 +1,37 @@
+{
+  "name": "intern-job-scraper-bot",
+  "version": "1.0.0",
+  "description": "Automated job scraper for internships with Telegram bot integration",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "node test.js",
+    "build": "echo 'Installing Playwright browsers...' && npx playwright install chromium --with-deps",
+    "postinstall": "npx playwright install chromium --with-deps"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "playwright": "^1.40.0",
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "job-scraper",
+    "internship",
+    "telegram-bot",
+    "automation",
+    "playwright"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
