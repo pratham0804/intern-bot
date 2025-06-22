@@ -2,6 +2,7 @@ const express = require('express');
 const { chromium } = require('playwright');
 const cors = require('cors');
 const cron = require('node-cron');
+const { execSync } = require('child_process');
 require('dotenv').config();
 
 const app = express();
@@ -10,6 +11,42 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Flag to track if browsers are installed
+let browsersInstalled = false;
+
+// Function to ensure Playwright browsers are installed
+async function ensureBrowsersInstalled() {
+  if (browsersInstalled) return true;
+
+  try {
+    console.log('🔍 Checking if Playwright browsers are installed...');
+    
+    // Try to create a browser instance to test if it's available
+    try {
+      const testBrowser = await chromium.launch({ headless: true });
+      await testBrowser.close();
+      console.log('✅ Playwright browsers are already installed');
+      browsersInstalled = true;
+      return true;
+    } catch (testError) {
+      console.log('📥 Installing Playwright browsers...');
+      
+      // Install browsers
+      execSync('npx playwright install chromium --with-deps', { 
+        stdio: 'inherit',
+        timeout: 300000 // 5 minutes timeout
+      });
+      
+      console.log('✅ Playwright browsers installed successfully');
+      browsersInstalled = true;
+      return true;
+    }
+  } catch (error) {
+    console.error('❌ Failed to install Playwright browsers:', error.message);
+    return false;
+  }
+}
 
 // Browser configuration for Render
 const getBrowserConfig = () => {
@@ -55,6 +92,12 @@ const getBrowserConfig = () => {
 // Utility function to create browser instance
 async function createBrowser() {
   try {
+    // Ensure browsers are installed before creating instance
+    const installed = await ensureBrowsersInstalled();
+    if (!installed) {
+      throw new Error('Failed to install Playwright browsers');
+    }
+
     console.log('Attempting to launch browser...');
     const browser = await chromium.launch(getBrowserConfig());
     console.log('✅ Browser launched successfully');
@@ -119,9 +162,39 @@ async function navigateToPage(page, url, timeout = 30000) {
 app.get('/', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'Web Scraper API is running',
-    endpoints: ['/debug', '/internshala', '/letsintern', '/linkedin', '/test']
+    message: 'Intern Job Scraper Bot is running',
+    endpoints: ['/test', '/internshala', '/letsintern', '/linkedin', '/all'],
+    browsers_installed: browsersInstalled
   });
+});
+
+// Browser setup endpoint
+app.get('/setup', async (req, res) => {
+  try {
+    console.log('🔧 Setting up browsers...');
+    const installed = await ensureBrowsersInstalled();
+    
+    if (installed) {
+      res.json({
+        success: true,
+        message: 'Browsers installed and ready',
+        browsers_installed: true
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to install browsers',
+        browsers_installed: false
+      });
+    }
+  } catch (error) {
+    console.error('Setup failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      browsers_installed: false
+    });
+  }
 });
 
 // Automated job scraping function
@@ -564,11 +637,23 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Initialize browsers on startup
+async function initializeApp() {
+  console.log('🚀 Initializing Intern Job Scraper Bot...');
+  
+  // Install browsers in the background
+  ensureBrowsersInstalled().catch(error => {
+    console.error('⚠️ Warning: Failed to install browsers on startup:', error.message);
+    console.log('🔧 Browsers will be installed on first use');
+  });
+}
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Intern Job Scraper Bot running on port ${PORT}`);
   console.log(`📍 Available endpoints:`);
   console.log(`   GET / - Health check`);
+  console.log(`   GET /setup - Install browsers`);
   console.log(`   GET /test - Test browser functionality`);
   console.log(`   GET /internshala?category=web-development&location=mumbai`);
   console.log(`   GET /letsintern?category=technology`);
@@ -576,6 +661,9 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   GET /all - Combined results info`);
   console.log(`⏰ Daily automation scheduled for 9:00 AM IST`);
   console.log(`🤖 Telegram channel: @RemoteInternIndia`);
+  
+  // Initialize the app
+  initializeApp();
 });
 
 // Graceful shutdown
